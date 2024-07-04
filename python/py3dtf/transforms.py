@@ -31,6 +31,24 @@ class Quaternion(object):
     def to_transform_matrix(self):
         return transform_matrix_from_quaternion(*self.xyzw())
 
+    def to_rpy(self):
+        """ returns roll, pitch, yaw in radians """
+        import math
+        q0 = self._w
+        q1 = self._x
+        q2 = self._y
+        q3 = self._z
+        roll = math.atan2(
+            2 * ((q2 * q3) + (q0 * q1)),
+            q0**2 - q1**2 - q2**2 + q3**2
+        )  # radians
+        pitch = math.asin(2 * ((q1 * q3) - (q0 * q2)))
+        yaw = math.atan2(
+            2 * ((q1 * q2) + (q0 * q3)),
+            q0**2 + q1**2 - q2**2 - q3**2
+        )
+        return (roll, pitch, yaw)
+
 class Transform(object):
     def __init__(self, origin=None, x_axis=None, y_axis=None, quaternion=None):
         self._matrix = None
