@@ -1,6 +1,13 @@
 """ reinventing the wheel: small transform library """
 import numpy as np
 
+def normalized(vec):
+    norm = np.linalg.norm(vec)
+    if norm == 0:
+        print("Warning: attempting to normalize zero vector")
+        return vec
+    return vec / norm
+
 class Quaternion(object):
     def __init__(self, x, y, z, w):
         self._x = x
@@ -478,7 +485,6 @@ def test_axis_angle_roundtrip(human=False):
             assert np.allclose(angle, angle_out)
 
 def test_axis_angle_180_deg(human=False):
-    from schema.geometry import normalized
     for axis in [[1, 0, 0], [0, 1, 0], [0, 0, 1], normalized([1, 1, 1])]:
         for angle in [np.pi]:
             tmat = transform_matrix_from_axis_angle(axis, angle)
@@ -548,10 +554,42 @@ def test_json_roundtrip(human=False):
             print("After JSON roundtrip:")
             t2.print_matrix()
 
+def test_pitch_continuity_and_dependency_only_on_z_component_of_frame_x(human=False):
+    # pitch test
+    # generate random x vector, and orthogonal y vector (i.e. random 3D frame)
+    vals = []
+    for i in range(10000):
+        x = np.random.rand(3) * 2. - 1.
+        n = np.linalg.norm(x)
+        if n < 1e-6:
+            continue
+        x /= n
+        y = np.random.rand(3) * 2. - 1.
+        y_perp = y - np.dot(x, y) * x
+        n = np.linalg.norm(y_perp)
+        if n < 1e-6:
+            continue
+        y_perp /= n
+        tf = Transform([0,0,0], x_axis=x, y_axis=y_perp)
+        _, p, _ = tf.quaternion().to_rpy()
+        xx, xy, xz = x
+        ## we show that pitch is only dependent on the z component of the x vector
+        assert np.abs(xz - np.sin(p)) < 1e-5
+        vals.append([p, xz])
+    if human:
+        vals = np.array(vals)
+        import matplotlib.pyplot as plt
+        plt.scatter(vals[:,0], vals[:,1])
+        ref_p = np.linspace(-np.pi/2, np.pi/2, 100)
+        ref_xz = np.sin(ref_p)
+        plt.plot(ref_p, ref_xz, color="red")
+        plt.show()
+
 if __name__ == "__main__":
     HUMAN = True
     test_json_roundtrip(human=HUMAN)
     test_axis_angle_180deg_exact(human=HUMAN)
     test_axis_angle_180_deg(human=HUMAN)
     test_axis_angle_roundtrip(human=HUMAN)
+    test_pitch_continuity_and_dependency_only_on_z_component_of_frame_x(human=HUMAN)
     test_transform_code(human=HUMAN)
