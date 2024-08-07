@@ -94,9 +94,10 @@ class Transform(object):
         return "Transform(origin={}, x_axis={}, y_axis={})".format(self.origin(), self.x_axis(), self.y_axis())
 
     def __mul__(self, other):
-        """ T_A_in_B * T_B_in_C = T_A_in_C """
+        """ T_B_in_C * T_A_in_B = T_A_in_C """
+        print("Warning: Transform multiplication order has been changed since v0.3. This warning will be removed in v0.4.")
         if isinstance(other, Transform):
-            return Transform.from_matrix(np.dot(other.matrix(), self.matrix()))
+            return Transform.from_matrix(np.dot(self.matrix(), other.matrix()))
         else:
             raise NotImplementedError
         
@@ -429,6 +430,10 @@ def transform_vector(vector_in_A_frame, transform_matrix_A_in_B):
     return transform_vectors(vector_in_A_frame.reshape((1, 3)), transform_matrix_A_in_B).reshape((3,))
 
 def transform_matrix_from_frame(frame):
+    print("Warning: transform_matrix_from_frame is deprecated. Use transform_matrix_from_compas_frame instead.")
+    return transform_matrix_from_compas_frame(frame)
+
+def transform_matrix_from_compas_frame(frame):
     from compas.geometry.transformations import Transformation
     return np.array(Transformation.from_frame(frame).matrix)
 
@@ -475,6 +480,28 @@ def points_2d_to_3d(points_2d, z=0):
     if _2 != 2:
         raise ValueError("points_2d must be Nx2")
     return np.hstack([np.asanyarray(points_2d), np.ones((len(points_2d), 1)) * z])
+
+def test_transform_multiplication(human=False):
+    # translation, then rotation
+    """
+                          x
+                          ^
+                          |
+                   y <----+
+                          A
+
+       y                  x
+       ^                  ^
+       |                  |
+       +----> x    y <----+
+       WORLD              B
+    """
+    A_in_B = Transform([1, 0, 0], [1, 0, 0], [0, 1, 0])
+    B_in_WORLD = Transform([1, 0, 0], [0, 1, 0], [-1, 0, 0])
+    wrong = A_in_B * B_in_WORLD
+    A_in_WORLD = B_in_WORLD * A_in_B
+    assert np.allclose(A_in_WORLD.origin(), [1, 1, 0])
+    assert not np.allclose(wrong.origin(), [1, 1, 0])
 
 def test_axis_angle_roundtrip(human=False):
     for axis in [[1, 0, 0], [0, 1, 0], [0, 0, 1]]:
@@ -582,11 +609,13 @@ def test_pitch_continuity_and_dependency_only_on_z_component_of_frame_x(human=Fa
         plt.scatter(vals[:,0], vals[:,1])
         ref_p = np.linspace(-np.pi/2, np.pi/2, 100)
         ref_xz = np.sin(ref_p)
-        plt.plot(ref_p, ref_xz, color="red")
+        plt.plot(ref_p, ref_xz, color="red", label="sin(pitch)")
+        plt.title("Pitch vs. z component of x axis")
         plt.show()
 
 if __name__ == "__main__":
     HUMAN = True
+    test_transform_multiplication(human=HUMAN)
     test_json_roundtrip(human=HUMAN)
     test_axis_angle_180deg_exact(human=HUMAN)
     test_axis_angle_180_deg(human=HUMAN)
