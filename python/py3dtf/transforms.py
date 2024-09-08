@@ -1,7 +1,7 @@
 """ reinventing the wheel: small transform library """
 import numpy as np
 
-from gholke_utils import euler_from_matrix, euler_matrix
+from py3dtf.gholke_utils import euler_from_matrix, euler_matrix
 
 def normalized(vec):
     norm = np.linalg.norm(vec)
@@ -624,6 +624,11 @@ def test_pitch_continuity_and_dependency_only_on_z_component_of_frame_x(human=Fa
         plt.plot(ref_p, ref_xz, color="red", label="sin(pitch)")
         plt.title("Pitch vs. z component of x axis")
         plt.show()
+
+def test_transform_from_euler(human=False):
+    t = Transform.from_euler(0, 0, np.pi)
+    assert np.allclose(t.x_axis(), [-1, 0, 0])
+    assert np.allclose(t.y_axis(), [0, -1, 0])
 
 if __name__ == "__main__":
     HUMAN = True
