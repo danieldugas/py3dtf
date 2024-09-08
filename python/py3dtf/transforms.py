@@ -1,6 +1,8 @@
 """ reinventing the wheel: small transform library """
 import numpy as np
 
+from gholke_utils import euler_from_matrix, euler_matrix
+
 def normalized(vec):
     norm = np.linalg.norm(vec)
     if norm == 0:
@@ -71,9 +73,11 @@ class Transform(object):
                 self._matrix[:3, 0] = x_axis
                 self._matrix[:3, 1] = y_axis
                 self._matrix[:3, 2] = np.cross(x_axis, y_axis)
+            if quaternion is not None:
+                self._matrix = Quaternion.as_quaternion(quaternion).to_transform_matrix()
             if origin is not None:
                 self._matrix[:3, 3] = origin
-        if quaternion is not None:
+        elif quaternion is not None:
             self._quaternion = Quaternion.as_quaternion(quaternion)
 
     def to_json_dict(self):
@@ -116,6 +120,14 @@ class Transform(object):
         """ translation is not the axis origin! To implement rotation around an origin, use from_rotation_around_point """
         new = Transform()
         new._matrix = transform_matrix_from_axis_angle(axis, angle_rad, translation)
+        return new
+
+    def from_euler(e1, e2, e3, translation=None, axes="rxyz"):
+        """ translation is not the axis origin! To implement rotation around an origin, use from_rotation_around_point """
+        new = Transform()
+        new._matrix = euler_matrix(e1, e2, e3, axes=axes)
+        if translation is not None:
+            new._matrix[:3, 3] = translation
         return new
 
     def from_rotation_around_point(axis, angle_rad, point):
