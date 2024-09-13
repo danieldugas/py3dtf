@@ -31,7 +31,7 @@ class Quaternion(object):
             raise ValueError("Cannot convert {} to Quaternion".format(something))
     
     def xyzw(self):
-        return [self._x, self._y, self._z, self._w]
+        return np.array([self._x, self._y, self._z, self._w])
 
     def from_transform_matrix(self, matrix4x4):
         x, y, z, w = quaternion_from_transform_matrix(matrix4x4)
@@ -40,8 +40,14 @@ class Quaternion(object):
     def to_transform_matrix(self):
         return transform_matrix_from_quaternion(*self.xyzw())
 
+    def to_euler(self, axes="rxyz"):
+        return euler_from_matrix(self.to_transform_matrix(), axes=axes)
+
     def to_rpy(self):
         """ returns roll, pitch, yaw in radians """
+        print("Warning: this function returns incorrect values! Use to_euler instead.")
+        # TOFIX: used in deepmimic_env and mujoco_wasm but gives different results than euler_from_matrix!
+        # Deprecation warning?
         import math
         q0 = self._w
         q1 = self._x
@@ -630,8 +636,45 @@ def test_transform_from_euler(human=False):
     assert np.allclose(t.x_axis(), [-1, 0, 0])
     assert np.allclose(t.y_axis(), [0, -1, 0])
 
+def test_transform_from_euler_roundtrip(human=False):
+    # Wait: who is right?
+    ex_deg = 60
+    ey_deg = 45
+    ez_deg = 30
+    ex = np.deg2rad(ex_deg)
+    ey = np.deg2rad(ey_deg)
+    ez = np.deg2rad(ez_deg)
+    # visually checked on https://dugas.ch/transform_viewer/
+    mat = np.array([[0.612, -0.354, 0.707, 0.000],
+                    [0.780, 0.127, -0.612, 0.000],
+                    [0.127, 0.927, 0.354, 0.000],
+                    [0.000, 0.000, 0.000, 1.000]])
+    x_axis = np.array([0.612, 0.780, 0.127])
+    y_axis = np.array([-0.354, 0.127, 0.927])
+    z_axis = np.array([0.7069, -0.612, 0.354])
+    quat_xyzw = [0.53, 0.20, 0.39, 0.72]
+    # should be same
+    t = Transform(x_axis=x_axis, y_axis=y_axis)
+    assert np.allclose(t.z_axis(), z_axis, atol=1e-2), "expected: {}, got: {}".format(z_axis, t.z_axis())
+    assert np.allclose(t.quaternion().xyzw(), quat_xyzw, atol=1e-2), "expected: {}, got: {}".format(quat_xyzw, t.quaternion().xyzw())
+    rpy_gholke = t.quaternion().to_euler(axes="rxyz")
+    rpy_gholke_deg = np.rad2deg(rpy_gholke)
+    assert np.allclose(rpy_gholke_deg, [ex_deg, ey_deg, ez_deg], atol=0.1), "expected: {}, got: {}".format([ex_deg, ey_deg, ez_deg], rpy_gholke_deg)
+    # roundtrip
+    t2 = Transform.from_euler(ex, ey, ez, axes="rxyz")
+    assert np.allclose(t2.x_axis(), x_axis, atol=1e-2), "expected: {}, got: {}".format(x_axis, t2.x_axis())
+    assert np.allclose(t2.y_axis(), y_axis, atol=1e-2), "expected: {}, got: {}".format(y_axis, t2.y_axis())
+    assert np.allclose(t2.z_axis(), z_axis, atol=1e-2), "expected: {}, got: {}".format(z_axis, t2.z_axis())
+    assert np.allclose(t2.quaternion().xyzw(), quat_xyzw, atol=1e-2), "expected: {}, got: {}".format(quat_xyzw, t2.quaternion().xyzw())
+
+    # deprecated (incorrect) rpy method
+    rpy_this = t.quaternion().to_rpy() # wrong!
+    # assert np.allclose(rpy_this, [ex, ey, ez], atol=0.1), "expected: {}, got: {}".format([ex, ey, ez], rpy_this)
+    return
+
 if __name__ == "__main__":
     HUMAN = True
+    test_transform_from_euler_roundtrip(human=HUMAN)
     test_transform_multiplication(human=HUMAN)
     test_json_roundtrip(human=HUMAN)
     test_axis_angle_180deg_exact(human=HUMAN)

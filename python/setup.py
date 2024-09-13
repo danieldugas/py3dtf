@@ -7,7 +7,7 @@ setup(
     name="py3dtf",
     description="Simple 3D Transforms in Python",
     author="Daniel Dugas",
-    version="0.3.2",
+    version="0.3.3",
     packages=["py3dtf"],  # if adding more folders, schema.tools, etc...
     # ext_modules=cythonize("cyschema/fast_ops.pyx", annotate=True),
     python_requires=">=3.6",
